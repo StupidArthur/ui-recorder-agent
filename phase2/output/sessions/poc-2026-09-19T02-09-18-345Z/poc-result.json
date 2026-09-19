@@ -1,0 +1,73 @@
+{
+  "kind": "phase2a-shared-browser-poc",
+  "browserUrl": "http://127.0.0.1:9222",
+  "at": "2026-09-19T02:09:23.219Z",
+  "actions": [
+    "list_pages",
+    "navigate_page -> local demo",
+    "take_snapshot",
+    "fill #kw",
+    "click #search",
+    "evaluate_script (scroll + verify)",
+    "click row action",
+    "take_screenshot",
+    "navigate_page -> marker (home)"
+  ],
+  "checks": [
+    {
+      "name": "MCP initialize",
+      "ok": true,
+      "detail": "29 tools available"
+    },
+    {
+      "name": "attached to Recorder-owned Chrome",
+      "ok": true,
+      "detail": "endpoint page = file:///G:/cc_demos/ui-recorder-agent/phase2/marker.html"
+    },
+    {
+      "name": "pageId routing resolved",
+      "ok": true,
+      "detail": "pageId=1"
+    },
+    {
+      "name": "navigate_page",
+      "ok": true,
+      "detail": "Successfully navigated to http://127.0.0.1:4321/."
+    },
+    {
+      "name": "take_snapshot / locate uids",
+      "ok": true,
+      "detail": "kw=1_15 search=1_22"
+    },
+    {
+      "name": "fill (type)",
+      "ok": true,
+      "detail": "Successfully filled out the element"
+    },
+    {
+      "name": "click (search)",
+      "ok": true,
+      "detail": "Successfully clicked on the element"
+    },
+    {
+      "name": "evaluate_script (scroll + read state)",
+      "ok": true,
+      "detail": "Script ran on page and returned: ```json {\"rows\":1,\"kw\":\"张\"}"
+    },
+    {
+      "name": "filter applied in the real page",
+      "ok": true,
+      "detail": "expect 1 row for the keyword"
+    },
+    {
+      "name": "click (row action)",
+      "ok": true,
+      "detail": "Successfully clicked on the element"
+    },
+    {
+      "name": "real DOM reacted (modal opened)",
+      "ok": true,
+      "detail": "Script ran on page and returned:"
+    }
+  ]
+}

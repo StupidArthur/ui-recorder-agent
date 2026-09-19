@@ -1,3 +1,8 @@
+> Status: Phase 1 Stable
+>
+> 本文件描述 Scripted Cinematic Recorder（脚本化流程 → 带 HUD 的视频）。
+> Live Agent Capture 的后续设计与实验见 `PHASE2.md`。
+
 # UI Recorder Agent — 录制/回放方案设计（v0.1，待评审）
 
 ## 1. 文档目的
