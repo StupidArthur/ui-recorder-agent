@@ -1,0 +1,14 @@
+{
+  "name": "ui-recorder-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Record browser UI operations into an annotated, high-quality video for local playback.",
+  "scripts": {
+    "record": "node src/record.js",
+    "convert": "node src/to-mp4.js"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0",
+    "playwright": "^1.48.0"
+  }
+}
