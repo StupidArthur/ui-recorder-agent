@@ -1,7 +1,7 @@
 # PHASE2 — Live Agent Capture
 
-**本轮状态：Phase 2A（Shared Browser PoC）已完成并通过，停在任务书定义的 STOP POINT。**
-事件采集 / 录像 / camera / renderer 一律未开始。
+**本轮状态：Phase 2A（Shared Browser PoC）已完成并通过。Task 5 已闭环，STOP POINT = CLOSED。**
+事件采集 / 录像 / camera / renderer 一律未开始（等待评审下发 Phase 2B 指令）。
 
 Phase 1（Scripted Cinematic Recorder）已冻结，见 `SOLUTION.md`。
 
@@ -25,7 +25,7 @@ Phase 1（Scripted Cinematic Recorder）已冻结，见 `SOLUTION.md`。
 | 2 | 新建 `phase2/`，与 Phase 1 隔离 | ✅ |
 | 3 | `phase2/launch-browser.js`：自启 Dedicated Chrome + CDP endpoint | ✅ |
 | 4 | 改 OpenCode 的 chrome-devtools MCP 配置，指向我们的 Chrome | ✅（配置已改，生效需重启 OpenCode） |
-| 5 | Agent 通过 MCP 操作该浏览器并肉眼确认是同一个浏览器 | ⚠️ 部分（见 §6.5） |
+| 5 | Agent 通过 MCP 操作该浏览器并肉眼确认是同一个浏览器 | ✅（重启后闭环，见 §6.6） |
 | 6 | 形成实验报告（本文件） | ✅ |
 
 明确未做（任务书禁止提前做）：events.json / 录像 / camera / zoom / renderer / TTS / rrweb。
@@ -206,7 +206,9 @@ npm run phase2:inspect     # 查看端口与页面
 npm run phase2:browser:stop
 ```
 
-### 6.5 未闭环的一点：OpenCode 会话内的 MCP 尚未切到我们的 Chrome
+### 6.5 重启前的状态：OpenCode 会话内的 MCP 尚未切到我们的 Chrome
+
+> 已于 OpenCode 完全重启后闭环，见 §6.6。此处保留作为问题记录。
 
 实测：修改配置后，**当前这个 OpenCode 会话**里的 `chrome-devtools` 工具仍然指向它自己 launch 的 puppeteer 浏览器（`%TEMP%\puppeteer_dev_chrome_profile-*`），不是我们的 Chrome：
 
@@ -220,6 +222,33 @@ npm run phase2:browser:stop
 结论：
 - **能力已证明**（§6.3：真实 MCP 进程确实能接管并操作我们的 Chrome）；
 - **会话内的 OpenCode 工具切换**需要重启 OpenCode 后复测（见 §9 下一步）。
+
+---
+
+### 6.6 Task 5 闭环复测（OpenCode 重启后）
+
+完全重启 OpenCode 后，**会话内的 chrome-devtools MCP** 已切到 Recorder-owned Chrome，本轮由 Agent 亲手通过 MCP 完成动作链：
+
+```
+（会话内工具）list_pages -> 1: PHASE2-DEDICATED-CHROME (file:///.../phase2/marker.html)   ← 我们的 Chrome
+（我们的 Chrome）9222 /json/list -> [客户管理系统] file:///.../public/index.html          ← 同一浏览器
+（已无 puppeteer_dev_chrome_profile-* 进程）                                              ← MCP 不再自启
+```
+
+| 动作 | 目标 | 结果 | 证据 |
+|---|---|---|---|
+| navigate | `phase2/marker.html` | PASS | snapshot `RootWebArea "PHASE2-DEDICATED-CHROME"` |
+| click | marker `#probe` | PASS | 按钮文案变为「已被点击 ✓」 |
+| navigate | `public/index.html` | PASS | — |
+| fill | `#kw` | PASS | `value="张"` |
+| click | `#search` | PASS | 表格由 5 行过滤为 1 行（张三） |
+| scroll | window | PASS | `scrollY 0 → 73.71`（viewport 241 / doc 315） |
+| click | 行内「编辑」 | PASS | `#mask.show = true` |
+
+最终 DOM：`{ modalOpen: true, modalName: "张三", kw: "张", rows: 1 }`
+证据文件：`phase2/output/sessions/task5-live/verification.json`、`final-dom.png`
+
+**Task 5 = PASS，Phase 2A STOP POINT = CLOSED。**
 
 ---
 
@@ -262,13 +291,11 @@ C:\Users\Administrator\.config\opencode\opencode.json   # chrome-devtools 改为
 
 ## 9. 下一步（待评审后决定）
 
-**唯一的阻塞点**：让 OpenCode 会话内的 MCP 切到我们持有的 Chrome。
+原阻塞点（会话内 MCP 未切到我们的 Chrome）**已通过完全重启 OpenCode 解决**，Task 5 已闭环（§6.6）。
 
-1. **重启 OpenCode**（使 `--browserUrl` 生效），然后：
-   - 保持 `npm run phase2:browser` 先跑；
-   - 在会话内让 Agent 通过 chrome-devtools MCP 打开 `marker.html` 并操作，肉眼确认 `--status` 里看到的就是同一个页面 —— 这一步完成 Task 5 闭环。
-2. 闭环后进入 **Phase 2B — Event Capture**（真实 click/input/scroll/navigation → `events.jsonl`），
+1. 进入 **Phase 2B — Event Capture**（真实 click/input/scroll/navigation → `events.jsonl`），
    注意任务书 §14 的隐私要求（password/敏感字段一律 masked）。
+2. 使用前提不变：先 `npm run phase2:browser`，再让 Agent 工作。
 
 可选增强（本轮已发现、但未启用）：
 - `chrome-devtools-mcp` 自带 `--experimentalScreencast`（需 ffmpeg），可作为 Phase 2C raw video 的一条现成路径；我们已有 `ffmpeg-static`。
@@ -279,7 +306,7 @@ C:\Users\Administrator\.config\opencode\opencode.json   # chrome-devtools 改为
 
 | # | 问题 | 影响 | 处理 |
 |---|---|---|---|
-| I1 | 会话内 MCP 未生效，需重启 OpenCode | Task 5 未能在本会话闭环 | 重启后复测（§9） |
+| I1 | ~~会话内 MCP 未生效，需重启 OpenCode~~ | 已解决 | 完全重启 OpenCode 后 MCP 以 `--browserUrl` 接管，Task 5 闭环（§6.6） |
 | I2 | MCP 默认 `--pageIdRouting`，页面级工具必须带 `pageId` | 编写客户端时需先从 `list_pages` 取 id | 已在 smoke test 处理 |
 | I3 | 调试端口固定 9222 | 与用户本地已占用的 9222 冲突 | 单点常量集中定义，必要时改这里+MCP 配置 |
 | I4 | 若 launcher 未启动，MCP 因连不上 `--browserUrl` 会启动失败 | 影响该 MCP 可用性 | 使用前先 `npm run phase2:browser` |
@@ -304,6 +331,6 @@ C:\Users\Administrator\.config\opencode\opencode.json   # chrome-devtools 改为
 
 **D. 证据**：见 §6.3 / §7（含真实截图）
 
-**E. 风险**：I1（需重启 OpenCode）、I4（launcher 未启动则 MCP 连不上）——仅列实际发现项
+**E. 风险**：~~I1（需重启 OpenCode）~~ 已解决；I4（launcher 未启动则 MCP 连不上）仍有效
 
-**F. 下一步建议**：重启 OpenCode 完成 Task 5 闭环，然后进入 Phase 2B Event Capture
+**F. 下一步建议**：Task 5 已闭环（§6.6），可进入 Phase 2B Event Capture（待评审下发指令）

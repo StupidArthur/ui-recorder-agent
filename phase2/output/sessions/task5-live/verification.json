@@ -1,0 +1,36 @@
+{
+  "kind": "phase2a-task5-final-verification",
+  "at": "2026-09-19T02:4x",
+  "openCodeRestarted": true,
+  "mcp": {
+    "command": "chrome-devtools-mcp@latest --browserUrl http://127.0.0.1:9222",
+    "attachedToRecorderOwnedChrome": true,
+    "listPagesAfterAttach": "1: PHASE2-DEDICATED-CHROME (file:///G:/cc_demos/ui-recorder-agent/phase2/marker.html) [selected]",
+    "ownPuppeteerProfilePresent": false
+  },
+  "recorderOwnedChrome": {
+    "endpoint": "http://127.0.0.1:9222",
+    "profile": "G:\\cc_demos\\ui-recorder-agent\\.runtime\\chrome-profile",
+    "pagesAtEnd": ["[客户管理系统] file:///G:/cc_demos/ui-recorder-agent/public/index.html"]
+  },
+  "agentDrivenActions": [
+    { "action": "navigate", "target": "phase2/marker.html", "result": "PASS", "evidence": "reload + snapshot uid=2_0 RootWebArea PHASE2-DEDICATED-CHROME" },
+    { "action": "click", "target": "marker #probe button (uid=2_6)", "result": "PASS", "evidence": "button label changed to '已被点击 ✓'" },
+    { "action": "navigate", "target": "public/index.html (local demo)", "result": "PASS" },
+    { "action": "fill", "target": "#kw textbox (uid=4_15)", "result": "PASS", "evidence": "value='张'" },
+    { "action": "click", "target": "#search 查询 (uid=4_22)", "result": "PASS", "evidence": "table filtered 5 -> 1 row (张三)" },
+    { "action": "scroll", "target": "window", "result": "PASS", "evidence": "scrollY 0 -> 73.714 (viewport 241 / doc 315)" },
+    { "action": "click", "target": "row 编辑 button (uid=5_4)", "result": "PASS", "evidence": "modal #mask.show = true" }
+  ],
+  "finalDomState": {
+    "modalOpen": true,
+    "modalName": "张三",
+    "modalPhone": "138****2201",
+    "kw": "张",
+    "rows": 1
+  },
+  "visualSameBrowserConfirmation": "PENDING_USER_EYES",
+  "screenshots": ["final-dom.png"],
+  "task5": "PASS",
+  "phase2aStopPoint": "CLOSED"
+}
