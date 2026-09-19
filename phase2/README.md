@@ -25,7 +25,9 @@ Session owns Chrome  ->  MCP attaches to it  ->  Agent works  ->  session flushe
 | `launch-browser.js` | Launch/stop/inspect the dedicated, headed Chrome on a localhost-only CDP endpoint |
 | `marker.html` | Home page of the dedicated Chrome (proves which browser is which) |
 | `mcp-smoke-test.js` | PoC harness: spawns a real `chrome-devtools-mcp` against our Chrome and drives it |
-| `output/sessions/` | PoC evidence (checks + screenshot) |
+| `event-recorder.js` | **Phase 2B observer**: connects over CDP, records real interaction events (never controls) |
+| `event-recorder.inject.js` | Page-side listener installed into every document (observe-only, fail-safe) |
+| `output/sessions/` | Evidence: PoC results, and `events-<ts>/` capture sessions |
 
 ## Commands
 
@@ -34,7 +36,28 @@ npm run phase2:browser          # launch (or reuse) the dedicated Chrome
 npm run phase2:inspect          # print endpoint + open pages
 npm run phase2:browser:stop     # stop it (PID-scoped, safe)
 npm run phase2:smoke            # run the Shared Browser PoC harness
+npm run phase2:events           # start the Phase 2B event observer (Ctrl+C to stop)
 ```
+
+## Live capture — usage order (Phase 2B)
+
+```bash
+# Terminal A — own the browser
+npm run phase2:browser
+
+# Terminal B — observe only
+npm run phase2:events
+
+# Terminal C / OpenCode — let the Agent work normally
+#   ... the Agent drives the browser via chrome-devtools-mcp ...
+
+# stop the observer with Ctrl+C in Terminal B (Chrome keeps running)
+```
+
+Result: `phase2/output/sessions/events-<timestamp>/` containing
+`session.json`, `events.jsonl`, `summary.json`. No video is produced in Phase 2B.
+
+Test aids (not part of normal use): `--duration <sec>`, `--stop-file <path>`, `--heartbeat`.
 
 ## Configuration
 

@@ -2,3 +2,7 @@ node_modules/
 .video/
 .runtime/
 *.log
+phase2/output/*.out
+phase2/output/*.err
+phase2/output/.stop*
+phase2/output/*.pid

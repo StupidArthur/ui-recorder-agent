@@ -334,3 +334,218 @@ C:\Users\Administrator\.config\opencode\opencode.json   # chrome-devtools 改为
 **E. 风险**：~~I1（需重启 OpenCode）~~ 已解决；I4（launcher 未启动则 MCP 连不上）仍有效
 
 **F. 下一步建议**：Task 5 已闭环（§6.6），可进入 Phase 2B Event Capture（待评审下发指令）
+
+---
+---
+
+# Phase 2B — Event Capture
+
+> **Observe, don't control. Capture facts, don't interpret them.**
+> 只观察，不接管；先记录事实，不提前解释。
+
+**状态：已完成并通过，STOP POINT = CLOSED。**
+本轮只做旁路事件观察；未实现任何录像 / camera / zoom / renderer / normalization。
+
+## B1. 设计
+
+```text
+                       OpenCode
+                          │ chrome-devtools-mcp
+                          ▼
+                 Recorder-owned Chrome :9222
+                          ▲
+                          │  observe only (Playwright connectOverCDP)
+                          │
+                  phase2/event-recorder.js
+                          │  exposeBinding  ◀── window[__uiRecorderAgentEmit_*]
+                          ▼
+             phase2/output/sessions/events-<ts>/
+               ├─ session.json
+               ├─ events.jsonl   (流式追加)
+               └─ summary.json
+```
+
+设计要点：
+
+- **Observer 不是 Controller**：`event-recorder.js` 只使用 `chromium.connectOverCDP()` /
+  `context.exposeBinding()` / `context.addInitScript()` / `page.evaluate()`（仅用于安装监听器）。
+  不含任何 `page.click/fill/type/press/goto/reload`。
+- **职责切分**（任务书 §20）：页面只回答 *发生了什么 / 在哪 / 命中哪个元素*；
+  Node 负责 *全局时间 / pageId / frame / seq / 落盘*。
+- **统一时间基准**（§11）：Node 启动时 `T0 = process.hrtime.bigint()`，每条事件
+  `t = (now - T0) ms`，不依赖页面 `Date.now()`（导航会重置文档生命周期）。
+- **稳定性**：每个 Page 分配稳定 `pageId`（p1、p2…），导航后不变（§15）。
+- **注入策略**（§17）：`addInitScript` 负责 navigation / reload / 新 frame；
+  对 **已存在** 的文档与 frame 额外显式 `evaluate` 安装一次（init script 不会回溯生效）。
+- **防重复注入**（§18）：页面侧用固定 NS + 绑定名一起做 guard——同名直接返回，
+  不同名（即 recorder 重启）先 `teardown()` 再重装。**不做后处理去重**（§59）。
+
+## B2. 实现文件
+
+```
+phase2/event-recorder.js          # Observer 主进程（Node 侧时间轴 / 落盘 / 生命周期）
+phase2/event-recorder.inject.js   # 页面侧监听器（只读 DOM，fail-safe，视觉不可见）
+```
+
+CLI（`npm run phase2:events [-- ...]`）：
+
+```
+--endpoint <url>    默认 http://127.0.0.1:9222
+--duration <sec>    到时自动停止（测试辅助）
+--stop-file <path>  文件出现即优雅停止（测试辅助）
+--heartbeat         每 5s 输出一次增量计数（测试辅助）
+--label <text>      session 目录后缀
+```
+
+## B3. Event schema
+
+公共 envelope（Node 侧补齐 `v/seq/t/pageId/frame/url`）：
+
+```json
+{ "v":1, "seq":12, "t":12842.37, "type":"click", "pageId":"p1",
+  "frame":{"kind":"main"}, "url":"https://...", "viewport":{"width":1280,"height":802,"dpr":1.75} }
+```
+
+各类型附加字段：
+
+| type | 附加字段 |
+|---|---|
+| `pointerdown` | `point{x,y}`、`pointer{button,pointerType}`、`target`、`pageScroll`、`viewport` |
+| `click` | `point{x,y}`、`target`、`pageScroll`、`viewport` |
+| `input` | `target`、`input{inputType,valueLength,masked}` |
+| `change` | `target`、`change{selectedIndex}` |
+| `keydown` | `key`、`modifiers{ctrl,meta,alt,shift}`、`target` |
+| `scroll` | `scroll{x,y}`、可选 `target`（元素滚动时） |
+| `navigation` | `url`、`title` |
+
+`target` 字段：`tag,id,role,ariaLabel,name,type,testid,label,rect{x,y,width,height}`。
+坐标一律 **CSS viewport 坐标**，不换算成视频像素。**不记录 outerHTML/innerHTML/DOM 子树。**
+
+## B4. 隐私策略
+
+- **任何 input/change 都不记录 value**（§27–§29）。只记录 `valueLength` 与 `masked`。
+- `masked=true`：`type=password`、`autocomplete~password`、或 id/name 命中
+  `pass|token|secret|otp|credit|card|cvv|auth|apikey|api_key`。
+- `keydown` 只记录白名单功能键（Enter/Escape/Tab/Backspace/Delete/方向键/Home/End/PageUp/Down）
+  与带修饰键的快捷键；可打印字符交给 `input` 表达，**不做 keylogger**（§30–§31）。
+- **不记录 `mousemove` / `pointermove`**（§40）。
+- URL 侧预留 redact（本轮测试 URL 无敏感参数，未触发）。
+- 代码层面无 `target.value` 参与落盘。
+
+## B5. 测试流程（真实 Agent 操作，非 steps.js）
+
+1. Terminal A：`npm run phase2:browser`（复用已运行的专用 Chrome）。
+2. Terminal B：`npm run phase2:events`。
+3. 当前 OpenCode Agent 通过 chrome-devtools MCP 执行：
+   - 在 **已存在的** `public/index.html` 上点击「重置」（验证 existing-page 注入）
+   - navigate → `phase2/marker.html`，点击 `#probe`
+   - navigate → `public/index.html`：fill `#kw`、click `#search`、scroll、click 行内「编辑」
+   - **reload**，之后继续 fill / keydown(Enter) / click（验证 reload 存活）
+4. Ctrl+C（本次用 `--stop-file` 触发同一优雅退出路径）。
+
+## B6. 实际结果
+
+主 Session `events-20260919-104954-main`：**20 条事件**，全部类型命中：
+
+| type | count |
+|---|---|
+| pointerdown | 5 |
+| click | 5 |
+| navigation | 3 |
+| input | 2 |
+| change | 2 |
+| scroll | 2 |
+| keydown | 1 |
+
+关键样本（`events.jsonl` 原文）：
+- `pointerdown #reset @604.57,153 rect=65.14x40`
+- `click #search @526,153 rect=64x40`（点击点落在 rect 内）
+- `click 编辑 @874,189 rect=28x20`
+- `input #kw len=1`（**无 value**）
+- `scroll y=73.71`
+- `keydown Enter`
+- `navigation file:///.../marker.html title="PHASE2-DEDICATED-CHROME"`
+
+程序化校验（覆盖 §55/§56/§58/§59）：
+
+| 校验 | 结果 |
+|---|---|
+| seq 严格递增 1..N | PASS |
+| t 严格单调递增 | PASS |
+| click/pointerdown 点位于 target rect 内 | PASS（全部样本） |
+| events.jsonl 中无原始 value（`"value":` / `张` / `138****` / `password`） | PASS（NONE） |
+| existing-page 注入 | PASS（起始「重置」点击被记录） |
+| navigation 后继续记录 | PASS |
+| reload 后继续记录 | PASS（reload 后 input/keydown/click 均出现） |
+| 单次 click 只产生 1 pointerdown + 1 click（无叠加） | PASS |
+| Recorder 重启后无重复 listener | PASS（重启 Session 单次 click = 1+1） |
+| Recorder 退出后 Chrome 继续运行、MCP 仍可操作 | PASS（`list_pages` 正常） |
+| Phase 1 `npm run record` 回归 | PASS（934 KB） |
+
+重启验证 Session `events-20260919-105457-restart`：单次 click → `pointerdown:1, click:1`。
+
+## B7. 已知问题
+
+| # | 问题 | 说明 |
+|---|---|---|
+| I2B-1 | 观察到 2 条 `keydown Escape`（`isTrusted:true`） | 空转 Session（无任何操作）为 **0 事件**，且单次 click 精确 1+1，判定为真实输入（可能来自 CDP 注入的按键），**非重复注入**；仅作观察记录 |
+| I2B-2 | `change` 在文本框上于 blur 时触发，`selectedIndex=null` | 浏览器真实行为，非缺陷 |
+| I2B-3 | 元素滚动（div 容器）已支持但本轮只验证了 window scroll | 见 schema `target` 字段 |
+| I2B-4 | same-document（hash / history API）导航未单独记录 | 任务书列为 P1 |
+| I2B-5 | iframe/OOPIF 注入未验证 | 主 frame 已达标，任务书列为非 blocker |
+
+## B8. 未支持范围（本轮明确不做）
+
+`recordVideo` / `Page.startScreencast` / `raw.webm` / `mp4` / camera.json / auto zoom / pan /
+synthetic cursor / ripple / HUD / caption / TTS / audio / AI summary /
+`normalize-events.js` / Action model（ClickAction/TypeAction/…）。
+
+## B9. 本阶段验收汇报
+
+```text
+Phase 2B Final Verification
+
+Phase 2A baseline intact:            PASS (tag phase2a-shared-browser)
+Observer connection:                 PASS (playwright connectOverCDP)
+Existing-page injection:             PASS
+Navigation survival:                 PASS
+Reload survival:                     PASS
+
+Captured:
+  pointerdown: PASS (5)
+  click:       PASS (5)
+  input:       PASS (2)
+  change:      PASS (2)
+  keydown:     PASS (1)
+  scroll:      PASS (2)
+  navigation:  PASS (3)
+
+Click coordinate validation:  PASS  (#search / 编辑 / #reset / #probe 点均在 rect 内)
+Target rect validation:       PASS  (rect 随 viewport/scroll 正确变化)
+Input privacy:                PASS  (raw values found: NO)
+
+JSONL:
+  seq monotonic:      PASS
+  time monotonic:     PASS
+  incremental persistence: PASS (appendFileSync 每条即时落盘)
+
+Recorder shutdown:
+  flush:            PASS (session.json 更新 + summary.json)
+  Chrome survives:  PASS
+  MCP remains usable: PASS
+
+Recorder restart duplicate test: PASS
+Performance observation: 无卡顿/无 event storm（scroll 已 100ms throttle）
+
+Output:
+  session:     phase2/output/sessions/events-20260919-104954-main
+  events.jsonl: 20 lines
+  session.json / summary.json: 已生成
+
+Git:
+  commit: (见下)
+  tag:    phase2b-event-capture
+
+Phase 2B: PASS
+Phase 2B STOP POINT: CLOSED
+```

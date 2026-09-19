@@ -1,0 +1,16 @@
+{
+  "sessionId": "events-20260919-104954-main",
+  "startedAt": "2026-09-19T02:49:54.487Z",
+  "endedAt": "2026-09-19T02:54:28.633Z",
+  "durationMs": 274146,
+  "eventCount": 20,
+  "counts": {
+    "pointerdown": 5,
+    "click": 5,
+    "navigation": 3,
+    "input": 2,
+    "change": 2,
+    "scroll": 2,
+    "keydown": 1
+  }
+}

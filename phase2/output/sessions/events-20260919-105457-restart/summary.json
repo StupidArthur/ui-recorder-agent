@@ -1,0 +1,12 @@
+{
+  "sessionId": "events-20260919-105457-restart",
+  "startedAt": "2026-09-19T02:54:57.754Z",
+  "endedAt": "2026-09-19T03:07:40.630Z",
+  "durationMs": 762877,
+  "eventCount": 4,
+  "counts": {
+    "keydown": 2,
+    "pointerdown": 1,
+    "click": 1
+  }
+}

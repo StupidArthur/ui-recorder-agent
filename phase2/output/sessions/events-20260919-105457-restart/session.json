@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "phase": "2B",
+  "sessionId": "events-20260919-105457-restart",
+  "startedAt": "2026-09-19T02:54:57.754Z",
+  "endedAt": "2026-09-19T03:07:40.630Z",
+  "durationMs": 762877,
+  "eventCount": 4,
+  "cdpEndpoint": "http://127.0.0.1:9222",
+  "observer": {
+    "mode": "playwright-connect-over-cdp",
+    "controlBrowser": false
+  }
+}

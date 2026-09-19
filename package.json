@@ -9,7 +9,8 @@
     "phase2:browser": "node phase2/launch-browser.js",
     "phase2:browser:stop": "node phase2/launch-browser.js --stop",
     "phase2:inspect": "node phase2/launch-browser.js --status",
-    "phase2:smoke": "node phase2/mcp-smoke-test.js"
+    "phase2:smoke": "node phase2/mcp-smoke-test.js",
+    "phase2:events": "node phase2/event-recorder.js"
   },
   "dependencies": {
     "ffmpeg-static": "^5.2.0",
